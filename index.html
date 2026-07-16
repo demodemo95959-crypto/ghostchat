@@ -231,6 +231,24 @@ html,body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
 .emoji-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(8,1fr);gap:2px;padding:8px;align-content:start;}
 .emoji-grid span{font-size:22px;text-align:center;padding:6px 0;cursor:pointer;border-radius:8px;transition:background .1s;user-select:none;}
 .emoji-grid span:active{background:var(--bg3);}
+
+/* ── CALLING ── */
+.call-overlay{position:fixed;inset:0;z-index:2000;background:linear-gradient(180deg,#1a0a2e,#0a0a0f 60%);display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.call-box{display:flex;flex-direction:column;align-items:center;gap:10px;z-index:2;}
+.call-pulse-avatar{width:110px;height:110px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#6d28d9);display:grid;place-items:center;font-size:44px;font-weight:700;color:#fff;box-shadow:0 0 0 0 #7c3aed88;animation:callPulse 1.6s infinite;}
+@keyframes callPulse{0%{box-shadow:0 0 0 0 #7c3aed66;}70%{box-shadow:0 0 0 30px #7c3aed00;}100%{box-shadow:0 0 0 0 #7c3aed00;}}
+.call-name{font-size:22px;font-weight:700;color:var(--text);margin-top:8px;}
+.call-status{font-size:14px;color:var(--text3);}
+.call-controls{display:flex;gap:24px;margin-top:36px;}
+.call-controls-bottom{position:absolute;bottom:50px;left:0;right:0;justify-content:center;z-index:3;}
+.call-btn{width:60px;height:60px;border-radius:50%;border:none;font-size:24px;cursor:pointer;display:grid;place-items:center;transition:transform .15s;}
+.call-btn:active{transform:scale(.9);}
+.call-btn.accept{background:var(--success);}
+.call-btn.decline{background:var(--danger);}
+.call-btn.mute-btn,.call-btn.video-toggle-btn{background:var(--bg3);border:1px solid var(--border);}
+.call-btn.mute-btn.active,.call-btn.video-toggle-btn.active{background:var(--danger);}
+#remote-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;background:#000;}
+#local-video{position:absolute;bottom:120px;right:16px;width:100px;height:140px;border-radius:14px;object-fit:cover;z-index:1;border:2px solid var(--purple);background:#000;}
 .send-btn:hover{transform:scale(1.06);}
 .send-btn:active{transform:scale(.94);}
 
@@ -517,6 +535,8 @@ html,body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
           <div class="tb-status" id="tb-status">Ghost Chat</div>
         </div>
         <div class="tb-actions">
+          <div class="icon-btn" onclick="startCall('audio')" title="Voice call">📞</div>
+          <div class="icon-btn" onclick="startCall('video')" title="Video call">📹</div>
           <div class="icon-btn" onclick="toggleMsgSearch()" title="Search">🔍</div>
         </div>
       </div>
@@ -535,6 +555,8 @@ html,body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
         <div class="emoji-grid" id="emoji-grid"></div>
       </div>
       <div class="msg-input-area">
+        <button class="emoji-btn" onmousedown="event.preventDefault()" onclick="document.getElementById('file-attach-input').click()">📎</button>
+        <input type="file" id="file-attach-input" style="display:none" onchange="handleFileAttach(this)">
         <button class="emoji-btn" onmousedown="event.preventDefault()" onclick="toggleEmojiPanel()">😊</button>
         <textarea class="msg-input" id="msg-input" placeholder="Type a message..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
         <button class="send-btn" onmousedown="event.preventDefault()" onclick="sendMessage()">➤</button>
@@ -581,9 +603,30 @@ html,body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
       <div><div class="pd-label">Chat Background</div><div class="pd-desc">Customize wallpaper</div></div>
       <span class="pd-chevron">›</span>
     </div>
+    <div class="pd-item" onclick="openGenderModal()">
+      <div class="pd-icon" style="background:#ec489922">⚧</div>
+      <div><div class="pd-label">Gender</div><div class="pd-desc" id="pd-gender-desc">Not set</div></div>
+      <span class="pd-chevron">›</span>
+    </div>
     <div class="pd-item" onclick="doLogout()">
       <div class="pd-icon" style="background:#ef444422">🚪</div>
       <div><div class="pd-label" style="color:var(--danger)">Log Out</div><div class="pd-desc">Sign out of your account</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Change Gender -->
+<div class="modal" id="modal-change-gender" onclick="closeModalOnBg(event,'change-gender')">
+  <div class="modal-box">
+    <h3>Set Your Gender</h3><p>Shown as ♂️/♀️ next to your name everywhere</p>
+    <div style="display:flex;gap:10px;margin-bottom:14px">
+      <button type="button" id="g-male-btn" class="gender-btn" onclick="pickModalGender('male')">♂️ Male</button>
+      <button type="button" id="g-female-btn" class="gender-btn" onclick="pickModalGender('female')">♀️ Female</button>
+    </div>
+    <div id="gender-modal-msg" class="modal-msg"></div>
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="closeModal('change-gender')">Cancel</button>
+      <button class="btn-primary" style="flex:1" onclick="saveGender(this)">Save</button>
     </div>
   </div>
 </div>
@@ -642,6 +685,35 @@ html,body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
       <button class="btn-sec" onclick="closeModal('change-bg')">Cancel</button>
       <button class="btn-primary" style="flex:1" onclick="applyBg()">Apply</button>
     </div>
+  </div>
+</div>
+
+<!-- INCOMING CALL POPUP -->
+<div id="incoming-call" class="call-overlay" style="display:none">
+  <div class="call-box">
+    <div class="call-pulse-avatar" id="ic-avatar"></div>
+    <div class="call-name" id="ic-name">-</div>
+    <div class="call-status">Incoming <span id="ic-type">voice</span> call...</div>
+    <div class="call-controls">
+      <button class="call-btn decline" onclick="declineCall()">📵</button>
+      <button class="call-btn accept" onclick="acceptCall()">📞</button>
+    </div>
+  </div>
+</div>
+
+<!-- ACTIVE CALL SCREEN -->
+<div id="active-call" class="call-overlay" style="display:none">
+  <video id="remote-video" autoplay playsinline style="display:none"></video>
+  <video id="local-video" autoplay playsinline muted style="display:none"></video>
+  <div class="call-box" id="call-box-audio">
+    <div class="call-pulse-avatar" id="ac-avatar"></div>
+    <div class="call-name" id="ac-name">-</div>
+    <div class="call-status" id="ac-status">Calling...</div>
+  </div>
+  <div class="call-controls call-controls-bottom">
+    <button class="call-btn mute-btn" id="mute-btn" onclick="toggleMute()">🎙️</button>
+    <button class="call-btn decline" onclick="endCall()">📵</button>
+    <button class="call-btn video-toggle-btn" id="video-toggle-btn" onclick="toggleVideo()" style="display:none">📹</button>
   </div>
 </div>
 
@@ -863,6 +935,12 @@ async function loadProfile(){
   const{data}=await sb.from('profiles').select('*').eq('id',ME.id).single();
   if(!data||!data.username){showScreen('setup');return;}
   PROFILE=data;
+  if(PROFILE.banned){
+    await sb.auth.signOut();
+    authMsg('🚫 Your account has been banned from GhostChat.','err');
+    showScreen('auth');
+    return;
+  }
   const{data:settings}=await sb.from('user_settings').select('*').eq('id',ME.id).maybeSingle();
   PROFILE.pin=settings?.pin||null;
   PROFILE.bg_id=settings?.bg_id||null;
@@ -875,17 +953,19 @@ function showMainApp(){
   showScreen('app');
   if(PROFILE.bg_style)document.getElementById('messages-area').setAttribute('style',PROFILE.bg_style);
   // Update all displays
-  document.getElementById('corner-uname').textContent=`@${PROFILE.username}${genderIcon(PROFILE.gender)}`;
+  document.getElementById('corner-uname').innerHTML=`@${renderNameHtml(PROFILE.username,PROFILE.gender,PROFILE.badge,PROFILE.badge_color)}`;
   document.getElementById('corner-init').textContent=init(PROFILE.username);
-  document.getElementById('pd-uname').textContent=PROFILE.username+genderIcon(PROFILE.gender);
+  document.getElementById('pd-uname').innerHTML=renderNameHtml(PROFILE.username,PROFILE.gender,PROFILE.badge,PROFILE.badge_color);
   document.getElementById('pd-init').textContent=init(PROFILE.username);
   if(PROFILE.avatar_url){
     setAv('corner-img','corner-init',PROFILE.avatar_url,PROFILE.username);
     setAv('pd-img','pd-init',PROFILE.avatar_url,PROFILE.username);
   }
   document.getElementById('pin-status-text').textContent=PROFILE.pin?'PIN is set — tap to change':'Set a PIN to lock the app';
+  document.getElementById('pd-gender-desc').textContent=PROFILE.gender==='male'?'♂️ Male':PROFILE.gender==='female'?'♀️ Female':'Not set — tap to choose';
   loadChats();
   subscribeRT();
+  subscribeCallSignaling();
   setupPresence();
   requestNotifPermission();
 }
@@ -950,7 +1030,7 @@ async function loadChats(){
 
   const ids=[...new Set(msgs.map(m=>m.sender_id===ME.id?m.receiver_id:m.sender_id))];
   if(!ids.length){renderChats([]);return;}
-  const{data:profiles}=await sb.from('profiles').select('id,username,avatar_url,gender').in('id',ids);
+  const{data:profiles}=await sb.from('profiles').select('id,username,avatar_url,gender,badge,badge_color').in('id',ids);
   const{data:reads}=await sb.from('chat_reads').select('peer_id,last_read_at,pinned,hidden').eq('user_id',ME.id);
   const readMap={};(reads||[]).forEach(r=>readMap[r.peer_id]=r);
 
@@ -1016,6 +1096,23 @@ function closeChatItemMenu(){
 
 function genderIcon(g){return g==='male'?' ♂️':g==='female'?' ♀️':'';}
 
+// ── BADGES (assigned only by admin via Supabase) ──
+function renderNameHtml(username,gender,badge,badgeColor){
+  const uname=esc(username);
+  let pre='',post='',nameStyle='';
+  if(badge==='developer'){
+    pre='<span style="filter:drop-shadow(0 0 4px currentColor)">🪽</span> ';
+    post=' <span style="filter:drop-shadow(0 0 4px currentColor)">🪽</span>';
+    const color=badgeColor||'rgb(124,58,237)';
+    nameStyle=` style="color:${esc(color)};font-weight:700;text-shadow:0 0 8px ${esc(color)}66"`;
+  }
+  let tick='';
+  if(badge==='loyal')tick=' <span title="Loyal Member">💗✔️</span>';
+  if(badge==='gold')tick=' <span title="Gold Member">👑</span>';
+  if(badge==='couple')tick=' <span title="Couple">💘✔️</span>';
+  return `${pre}<span${nameStyle}>${uname}</span>${tick}${genderIcon(gender)}`;
+}
+
 function renderChats(chats){
   const list=document.getElementById('chats-list');
   if(!chats.length){list.innerHTML='<div class="empty-state">No chats yet.<br>Go to People to find friends!</div>';return;}
@@ -1028,7 +1125,7 @@ function renderChats(chats){
         ${onlineIds.has(c.id)?'<div class="ci-online"></div>':''}
       </div>
       <div class="ci-info">
-        <div class="ci-name">${c.pinned?'📌 ':''}${esc(c.username)}${genderIcon(c.gender)}</div>
+        <div class="ci-name">${c.pinned?'📌 ':''}${renderNameHtml(c.username,c.gender,c.badge,c.badge_color)}</div>
         <div class="ci-preview">${esc(c.last_msg||'Start a conversation')}${c.unread?` <span style="color:var(--purple2);font-weight:600">• ${c.unread} msg${c.unread>1?'s':''}</span>`:''}</div>
       </div>
       <div class="ci-meta">
@@ -1053,7 +1150,7 @@ async function searchPeople(q){
   if(!q||q.length<1){list.innerHTML='<div class="empty-state">Type a username to search</div>';return;}
   list.innerHTML='<div class="empty-state">Searching...</div>';
   peopleTimer=setTimeout(async()=>{
-    const{data,error}=await sb.from('profiles').select('id,username,avatar_url,gender').ilike('username',`%${q}%`).neq('id',ME.id).limit(20);
+    const{data,error}=await sb.from('profiles').select('id,username,avatar_url,gender,badge,badge_color').ilike('username',`%${q}%`).neq('id',ME.id).limit(20);
     if(error){list.innerHTML=`<div class="empty-state">Error: ${esc(error.message)}</div>`;return;}
     if(!data||!data.length){list.innerHTML='<div class="empty-state">No users found 👻</div>';return;}
     const onlineIds=getOnlineIds();
@@ -1066,7 +1163,7 @@ async function searchPeople(q){
           ${online?'<div class="pc-online"></div>':''}
         </div>
         <div class="pc-info">
-          <div class="pc-name">${esc(u.username)}${genderIcon(u.gender)}</div>
+          <div class="pc-name">${renderNameHtml(u.username,u.gender,u.badge,u.badge_color)}</div>
           <div class="pc-status ${online?'online':''}">${online?'● Online now':'Offline'}</div>
         </div>
         <button class="chat-now-btn" onclick="event.stopPropagation();startDirectChat('${u.id}','${u.username}','${u.avatar_url||''}')">Chat</button>
@@ -1091,7 +1188,7 @@ function setupPresence(){
     .on('presence',{event:'join'},({key,newPresences})=>{if(key!==ME.id)ONLINE_USERS.set(key,newPresences[0]);refreshOnlineTab();})
     .on('presence',{event:'leave'},({key})=>{ONLINE_USERS.delete(key);refreshOnlineTab();})
     .subscribe(async status=>{
-      if(status==='SUBSCRIBED')await presenceCh.track({user_id:ME.id,username:PROFILE.username,avatar_url:PROFILE.avatar_url||null,gender:PROFILE.gender||null});
+      if(status==='SUBSCRIBED')await presenceCh.track({user_id:ME.id,username:PROFILE.username,avatar_url:PROFILE.avatar_url||null,gender:PROFILE.gender||null,badge:PROFILE.badge||null,badge_color:PROFILE.badge_color||null});
     });
 }
 
@@ -1111,7 +1208,7 @@ function loadOnlineUsers(){
         <div class="pc-online"></div>
       </div>
       <div class="pc-info">
-        <div class="pc-name">${esc(u.username)}${genderIcon(u.gender)}</div>
+        <div class="pc-name">${renderNameHtml(u.username,u.gender,u.badge,u.badge_color)}</div>
         <div class="pc-status online">● Online now</div>
       </div>
       <button class="chat-now-btn" onclick="event.stopPropagation();startDirectChat('${id}','${u.username}','${u.avatar_url||''}')">Chat</button>
@@ -1133,7 +1230,7 @@ function switchSidebarTab(tab,btn){
 async function loadAllUsers(){
   const list=document.getElementById('allusers-list');
   list.innerHTML='<div class="empty-state">Loading users...</div>';
-  const{data,error}=await sb.from('profiles').select('id,username,avatar_url,gender').neq('id',ME.id).order('username',{ascending:true}).limit(200);
+  const{data,error}=await sb.from('profiles').select('id,username,avatar_url,gender,badge,badge_color').neq('id',ME.id).order('username',{ascending:true}).limit(200);
   if(error){list.innerHTML=`<div class="empty-state">Error: ${esc(error.message)}</div>`;return;}
   if(!data||!data.length){list.innerHTML='<div class="empty-state">No other users yet 👻</div>';return;}
   const onlineIds=getOnlineIds();
@@ -1146,7 +1243,7 @@ async function loadAllUsers(){
         ${online?'<div class="pc-online"></div>':''}
       </div>
       <div class="pc-info">
-        <div class="pc-name">${esc(u.username)}${genderIcon(u.gender)}</div>
+        <div class="pc-name">${renderNameHtml(u.username,u.gender,u.badge,u.badge_color)}</div>
         <div class="pc-status ${online?'online':''}">${online?'● Online now':'Offline'}</div>
       </div>
       <button class="chat-now-btn" onclick="event.stopPropagation();startDirectChat('${u.id}','${u.username}','${u.avatar_url||''}')">Chat</button>
@@ -1177,7 +1274,11 @@ async function openChat(userId,username,avatarUrl,type='dm'){
   tbAv.innerHTML=avatarUrl?`<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:`${init(username)}`;
   document.getElementById('tb-name').textContent=username;
   const chCache=ALL_CHATS.find(c=>c.id===userId);
-  document.getElementById('tb-name').textContent=username+genderIcon(chCache?.gender||ONLINE_USERS.get(userId)?.gender);
+  const onlineInfo=ONLINE_USERS.get(userId);
+  const g=chCache?.gender||onlineInfo?.gender;
+  const bdg=chCache?.badge||onlineInfo?.badge;
+  const bdgColor=chCache?.badge_color||onlineInfo?.badge_color;
+  document.getElementById('tb-name').innerHTML=renderNameHtml(username,g,bdg,bdgColor);
   const online=getOnlineIds().has(userId);
   document.getElementById('tb-status').textContent=online?'● Online now':'Ghost Chat';
 
@@ -1213,9 +1314,23 @@ function appendMsg(m,scroll=true){
   const div=document.createElement('div');
   div.className=`msg ${mine?'mine':'theirs'}`;
   if(m.id)div.dataset.msgId=m.id;
-  const bubbleContent=m.deleted_for_everyone
-    ? `<div class="msg-bubble" style="opacity:.6;font-style:italic">🚫 This message was deleted</div>`
-    : `<div class="msg-bubble">${esc(m.content)}</div>`;
+  let bubbleContent;
+  if(m.deleted_for_everyone){
+    bubbleContent=`<div class="msg-bubble" style="opacity:.6;font-style:italic">🚫 This message was deleted</div>`;
+  } else if(m.attachment_url && m.attachment_type==='image'){
+    bubbleContent=`<div class="msg-bubble" style="padding:4px">
+      <img src="${esc(m.attachment_url)}" style="max-width:220px;max-height:280px;border-radius:12px;display:block;cursor:pointer" onclick="window.open('${esc(m.attachment_url)}','_blank')">
+    </div>`;
+  } else if(m.attachment_url){
+    bubbleContent=`<div class="msg-bubble">
+      <a href="${esc(m.attachment_url)}" target="_blank" download style="display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none">
+        <span style="font-size:22px">📎</span>
+        <span style="word-break:break-all;font-size:13px">${esc(m.attachment_name||'File')}</span>
+      </a>
+    </div>`;
+  } else {
+    bubbleContent=`<div class="msg-bubble">${esc(m.content)}</div>`;
+  }
   div.innerHTML=`${bubbleContent}<div class="msg-time">${fmtTime(m.created_at)}</div>`;
   if(m.id && !m.deleted_for_everyone){
     const delBtn=document.createElement('span');
@@ -1263,7 +1378,7 @@ async function deleteMsg(msgId,forEveryone){
   closeMsgDeleteMenu();
   playSound('delete');
   if(forEveryone){
-    const{error}=await sb.from('messages').update({deleted_for_everyone:true,content:''}).eq('id',msgId);
+    const{error}=await sb.from('messages').update({deleted_for_everyone:true}).eq('id',msgId);
     if(error){toast('Delete failed: '+error.message,'error');return;}
     const el=document.querySelector(`[data-msg-id="${msgId}"] .msg-bubble`);
     if(el){el.textContent='🚫 This message was deleted';el.style.opacity='.6';el.style.fontStyle='italic';}
@@ -1295,6 +1410,220 @@ async function sendMessage(){
 }
 
 function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}
+// ── VOICE / VIDEO CALLING (WebRTC + Supabase Realtime signaling) ──
+const ICE_SERVERS={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]};
+let callChannel=null, pc=null, localStream=null;
+let currentCallPeerId=null, currentCallPeerName=null, currentCallType=null, isCaller=false;
+let isMuted=false, isVideoOff=false;
+
+function subscribeCallSignaling(){
+  if(callChannel)sb.removeChannel(callChannel);
+  callChannel=sb.channel(`calls:${ME.id}`)
+    .on('broadcast',{event:'offer'},({payload})=>handleIncomingOffer(payload))
+    .on('broadcast',{event:'answer'},({payload})=>handleAnswer(payload))
+    .on('broadcast',{event:'ice-candidate'},({payload})=>handleRemoteIce(payload))
+    .on('broadcast',{event:'hangup'},({payload})=>handleRemoteHangup(payload))
+    .on('broadcast',{event:'busy'},({payload})=>handleBusy(payload))
+    .subscribe();
+}
+
+function sendSignal(toUserId,event,payload){
+  sb.channel(`calls:${toUserId}`).send({type:'broadcast',event,payload:{...payload,from:ME.id,fromName:PROFILE.username}});
+}
+
+async function startCall(type){
+  if(!ACTIVE||ACTIVE.type!=='dm')return;
+  if(pc)return toast('Already in a call','error');
+  currentCallPeerId=ACTIVE.user_id;
+  currentCallPeerName=ACTIVE.username;
+  currentCallType=type;
+  isCaller=true;
+
+  try{
+    localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:type==='video'});
+  }catch(e){
+    return toast('Media error: '+e.name+' — '+e.message,'error');
+  }
+
+  showActiveCallUI('Calling...');
+  setupPeerConnection();
+  localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+
+  const offer=await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  sendSignal(currentCallPeerId,'offer',{sdp:offer,callType:type});
+
+  // Auto-cancel if not answered in 30s
+  window._callTimeout=setTimeout(()=>{
+    if(pc && document.getElementById('ac-status').textContent==='Calling...'){
+      sendSignal(currentCallPeerId,'hangup',{});
+      endCall();
+      toast('No answer','error');
+    }
+  },30000);
+}
+
+function handleIncomingOffer(payload){
+  if(pc){ // already busy
+    sendSignal(payload.from,'busy',{});
+    return;
+  }
+  currentCallPeerId=payload.from;
+  currentCallPeerName=payload.fromName;
+  currentCallType=payload.callType;
+  isCaller=false;
+  window._pendingOffer=payload.sdp;
+
+  document.getElementById('ic-name').textContent=payload.fromName;
+  document.getElementById('ic-type').textContent=payload.callType==='video'?'video':'voice';
+  document.getElementById('ic-avatar').textContent=init(payload.fromName);
+  document.getElementById('incoming-call').style.display='flex';
+  playSound('receive');
+}
+
+async function acceptCall(){
+  document.getElementById('incoming-call').style.display='none';
+  try{
+    localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:currentCallType==='video'});
+  }catch(e){
+    sendSignal(currentCallPeerId,'hangup',{});
+    return toast('Media error: '+e.name+' — '+e.message,'error');
+  }
+  showActiveCallUI('Connecting...');
+  setupPeerConnection();
+  localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+
+  await pc.setRemoteDescription(new RTCSessionDescription(window._pendingOffer));
+  const answer=await pc.createAnswer();
+  await pc.setLocalDescription(answer);
+  sendSignal(currentCallPeerId,'answer',{sdp:answer});
+  flushPendingIce();
+}
+
+function declineCall(){
+  document.getElementById('incoming-call').style.display='none';
+  sendSignal(currentCallPeerId,'hangup',{});
+  currentCallPeerId=null;currentCallPeerName=null;currentCallType=null;
+}
+
+function handleBusy(){
+  toast(currentCallPeerName+' is busy','error');
+  clearTimeout(window._callTimeout);
+  endCall();
+}
+
+async function handleAnswer(payload){
+  if(!pc)return;
+  await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+  clearTimeout(window._callTimeout);
+  document.getElementById('ac-status').textContent='Connected';
+  flushPendingIce();
+}
+
+let pendingIce=[];
+function handleRemoteIce(payload){
+  if(pc && pc.remoteDescription){
+    pc.addIceCandidate(new RTCIceCandidate(payload.candidate)).catch(()=>{});
+  } else {
+    pendingIce.push(payload.candidate);
+  }
+}
+function flushPendingIce(){
+  pendingIce.forEach(c=>pc.addIceCandidate(new RTCIceCandidate(c)).catch(()=>{}));
+  pendingIce=[];
+}
+
+function handleRemoteHangup(){
+  toast('Call ended');
+  endCall();
+}
+
+function setupPeerConnection(){
+  pc=new RTCPeerConnection(ICE_SERVERS);
+  pc.onicecandidate=(e)=>{
+    if(e.candidate)sendSignal(currentCallPeerId,'ice-candidate',{candidate:e.candidate});
+  };
+  pc.ontrack=(e)=>{
+    const remoteVideo=document.getElementById('remote-video');
+    remoteVideo.srcObject=e.streams[0];
+    if(currentCallType==='video'){remoteVideo.style.display='block';document.getElementById('call-box-audio').style.display='none';}
+  };
+  pc.onconnectionstatechange=()=>{
+    if(pc && (pc.connectionState==='disconnected'||pc.connectionState==='failed'))endCall();
+  };
+}
+
+function showActiveCallUI(status){
+  document.getElementById('ac-name').textContent=currentCallPeerName;
+  document.getElementById('ac-status').textContent=status;
+  document.getElementById('ac-avatar').textContent=init(currentCallPeerName);
+  document.getElementById('active-call').style.display='flex';
+  document.getElementById('video-toggle-btn').style.display=currentCallType==='video'?'grid':'none';
+  const localVideo=document.getElementById('local-video');
+  if(currentCallType==='video'&&localStream){
+    localVideo.srcObject=localStream;
+    localVideo.style.display='block';
+  }
+}
+
+function toggleMute(){
+  if(!localStream)return;
+  isMuted=!isMuted;
+  localStream.getAudioTracks().forEach(t=>t.enabled=!isMuted);
+  document.getElementById('mute-btn').classList.toggle('active',isMuted);
+}
+function toggleVideo(){
+  if(!localStream)return;
+  isVideoOff=!isVideoOff;
+  localStream.getVideoTracks().forEach(t=>t.enabled=!isVideoOff);
+  document.getElementById('video-toggle-btn').classList.toggle('active',isVideoOff);
+}
+
+function endCall(){
+  if(currentCallPeerId && pc)sendSignal(currentCallPeerId,'hangup',{});
+  clearTimeout(window._callTimeout);
+  if(pc){pc.close();pc=null;}
+  if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;}
+  document.getElementById('active-call').style.display='none';
+  document.getElementById('incoming-call').style.display='none';
+  document.getElementById('remote-video').style.display='none';
+  document.getElementById('remote-video').srcObject=null;
+  document.getElementById('local-video').style.display='none';
+  document.getElementById('local-video').srcObject=null;
+  document.getElementById('call-box-audio').style.display='flex';
+  isMuted=false;isVideoOff=false;
+  document.getElementById('mute-btn').classList.remove('active');
+  document.getElementById('video-toggle-btn').classList.remove('active');
+  currentCallPeerId=null;currentCallPeerName=null;currentCallType=null;
+  pendingIce=[];
+}
+
+// ── FILE / PHOTO ATTACHMENT ──
+async function handleFileAttach(input){
+  const file=input.files[0];
+  input.value='';
+  if(!file||!ACTIVE)return;
+  if(file.size>15*1024*1024)return toast('File too large (max 15MB)','error');
+  toast('Uploading...');
+  const ext=file.name.split('.').pop();
+  const path=`${ME.id}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
+  const{error:upErr}=await sb.storage.from('chat-files').upload(path,file);
+  if(upErr){toast('Upload failed: '+upErr.message,'error');return;}
+  const{data}=sb.storage.from('chat-files').getPublicUrl(path);
+  const isImage=file.type.startsWith('image/');
+
+  const{data:msgData,error}=await sb.from('messages').insert({
+    sender_id:ME.id,receiver_id:ACTIVE.user_id,
+    content:isImage?'📷 Photo':'📎 '+file.name,
+    attachment_url:data.publicUrl,
+    attachment_name:file.name,
+    attachment_type:isImage?'image':'file',
+    created_at:new Date().toISOString()
+  }).select().single();
+  if(error){toast('Send failed: '+error.message,'error');return;}
+  if(msgData){appendMsg(msgData);playSound('send');loadChats();}
+}
+
 function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
 
 // ── EMOJI PICKER ──
@@ -1438,8 +1767,8 @@ async function doChangeUsername(btn){
   if(ex){btn.disabled=false;btn.textContent='Save';return msg('un-msg','Username not available','err');}
   await sb.from('profiles').update({username:val}).eq('id',ME.id);
   PROFILE.username=val;
-  document.getElementById('corner-uname').textContent=`@${val}`;
-  document.getElementById('pd-uname').textContent=val;
+  document.getElementById('corner-uname').innerHTML=`@${renderNameHtml(val,PROFILE.gender,PROFILE.badge,PROFILE.badge_color)}`;
+  document.getElementById('pd-uname').innerHTML=renderNameHtml(val,PROFILE.gender,PROFILE.badge,PROFILE.badge_color);
   btn.disabled=false;btn.textContent='Save';
   msg('un-msg','Username updated!','ok');
   playSound('success');
@@ -1470,6 +1799,33 @@ async function doChangePassword(btn){
 }
 
 // ── PIN ──
+let modalPickedGender=null;
+function openGenderModal(){
+  modalPickedGender=PROFILE.gender||null;
+  document.getElementById('g-male-btn').classList.toggle('selected',modalPickedGender==='male');
+  document.getElementById('g-female-btn').classList.toggle('selected',modalPickedGender==='female');
+  msg('gender-modal-msg','');
+  openModal('change-gender');
+}
+function pickModalGender(g){
+  modalPickedGender=g;
+  document.getElementById('g-male-btn').classList.toggle('selected',g==='male');
+  document.getElementById('g-female-btn').classList.toggle('selected',g==='female');
+}
+async function saveGender(btn){
+  if(!modalPickedGender)return msg('gender-modal-msg','Please select a gender','err');
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span>';
+  const{error}=await sb.from('profiles').update({gender:modalPickedGender}).eq('id',ME.id);
+  btn.disabled=false;btn.textContent='Save';
+  if(error)return msg('gender-modal-msg','Failed: '+error.message,'err');
+  PROFILE.gender=modalPickedGender;
+  document.getElementById('pd-gender-desc').textContent=modalPickedGender==='male'?'♂️ Male':'♀️ Female';
+  document.getElementById('corner-uname').innerHTML=`@${renderNameHtml(PROFILE.username,PROFILE.gender,PROFILE.badge,PROFILE.badge_color)}`;
+  document.getElementById('pd-uname').innerHTML=renderNameHtml(PROFILE.username,PROFILE.gender,PROFILE.badge,PROFILE.badge_color);
+  playSound('success');
+  toast('Gender updated!','success');
+  closeModal('change-gender');
+}
 async function doSetPin(){
   const p1=document.getElementById('new-pin').value;
   const p2=document.getElementById('new-pin2').value;
